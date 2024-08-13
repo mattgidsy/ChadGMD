@@ -3,9 +3,11 @@ from typing import Literal, Optional, Union
 
 import discord
 from discord import Message as DiscordMessage, app_commands
+from discord.ext import commands
 import logging
-from src.base import Message, Conversation, ThreadConfig
-from src.constants import (
+import settings
+from base import Message, Conversation, ThreadConfig
+from constants import (
     BOT_INVITE_URL,
     DISCORD_BOT_TOKEN,
     EXAMPLE_CONVOS,
@@ -16,16 +18,16 @@ from src.constants import (
     DEFAULT_MODEL,
 )
 import asyncio
-from src.utils import (
+from utils import (
     logger,
     should_block,
     close_thread,
     is_last_message_stale,
     discord_message_to_message,
 )
-from src import completion
-from src.completion import generate_completion_response, process_response
-from src.moderation import (
+import completion
+from completion import generate_completion_response, process_response
+from moderation import (
     moderate_message,
     send_moderation_blocked_message,
     send_moderation_flagged_message,
@@ -56,11 +58,13 @@ async def on_ready():
             else:
                 messages.append(m)
         completion.MY_BOT_EXAMPLE_CONVOS.append(Conversation(messages=messages))
-    await tree.sync()
+    tree.copy_global_to(guild=settings.GUILDS_ID)
+    await tree.sync(guild=settings.GUILDS_ID)
+    #await tree.sync()
 
 
 # /chat message:
-@tree.command(name="chat", description="Create a new thread for conversation")
+@tree.command(name="dangle", description="Question.Answer.Dangle.")
 @discord.app_commands.checks.has_permissions(send_messages=True)
 @discord.app_commands.checks.has_permissions(view_channel=True)
 @discord.app_commands.checks.bot_has_permissions(send_messages=True)
@@ -74,7 +78,7 @@ async def on_ready():
 @app_commands.describe(
     max_tokens="How many tokens the model should output at max for each message."
 )
-async def chat_command(
+async def dangle_command(
     int: discord.Interaction,
     message: str,
     model: AVAILABLE_MODELS = DEFAULT_MODEL,
@@ -307,6 +311,21 @@ async def on_message(message: DiscordMessage):
         )
     except Exception as e:
         logger.exception(e)
+    #sync with discord, use when changes are made to slash commands
+
+bot = commands.Bot(command_prefix= "!", intents=intents)
+@bot.command(hidden=True)
+async def syncgmd(ctx):
+    user_id = ctx.author.id
+    owner_id = ctx.guild.owner_id
+    user_name = ctx.author.name
+    if user_id == owner_id:
+        bot.tree.copy_global_to(guild=settings.GUILDS_ID)
+        await bot.tree.sync(guild=settings.GUILDS_ID)
+        await ctx.send(f"{user_name}, I have requested to sync with the hive.", ephemeral=True)
+    else:
+        await ctx.send(f"Sorry, {user_name}, you don't have permission to use that command.\n Dad doesn't want to get rate limited.")
+            
 
 
 client.run(DISCORD_BOT_TOKEN)

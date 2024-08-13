@@ -4,7 +4,7 @@ import dacite
 import yaml
 from typing import Dict, List, Literal
 
-from src.base import Config
+from base import Config
 
 load_dotenv()
 
